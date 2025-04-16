@@ -1,18 +1,17 @@
-# Environments
-.env
-.venv
-env/
-venv/
-ENV/
+# Bytecode
+__pycache__/
+*.py[cod]
 
-# Other
-.Python
-build/
-dist/
-downloads/
-lib/
-lib64/
-parts/
-sdist/
-var/
-MANIFEST
+# Virtual environments
+venv/
+.env/
+
+# Environment files
+*.env
+
+# IDE/editor configs
+.vscode/
+.idea/
+
+# MacOS
+.DS_Store
