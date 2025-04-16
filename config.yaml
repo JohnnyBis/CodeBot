@@ -1,0 +1,12 @@
+# Configs
+
+llm:
+  model_name: "gemini-2.0-flash"
+  max_context_tokens: 8000
+
+repository:
+  ignore_dirs: ['.git', '__pycache__', 'node_modules', 'venv', '.venv', 'dist', 'build', '.gradle', '.idea']
+  ignore_files: ['.env', '.gitignore', 'package-lock.json', 'yarn.lock', '.DS_Store']
+  
+  max_context_files: 7 # Maximum number of files that can be selected as relevant context
+  max_file_tokens: 2500
