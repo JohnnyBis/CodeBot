@@ -1,5 +1,5 @@
 # CodeBot - Focus AI Assignment
-# Author: Gianmaria Biselli
+### Author: Gianmaria Biselli
 
 ## Setup
 
