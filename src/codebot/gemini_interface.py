@@ -1,6 +1,5 @@
 import google.generativeai as genai
 import logging
-import time
 from .utils.utils import load_api_key
 from .exceptions import LLMInteractionError
 
@@ -10,17 +9,11 @@ class GeminiInterface:
     def __init__(self, config):
         """
         Initializes the Gemini interface.
-
-        Args:
-            config (dict): Configuration dictionary, expecting 'llm' key for model name etc.
-
-        Raises:
-            LLMInteractionError: If API key is missing or configuration fails.
         """
         self.api_key = load_api_key()
 
         if not self.api_key:
-            raise LLMInteractionError("Could not find Gemini API key. Set it in the .env file.")
+            raise LLMInteractionError("Could not find Gemini API key. Please set it in the .env file.")
 
         try:
             genai.configure(api_key=self.api_key)
@@ -39,24 +32,13 @@ class GeminiInterface:
             raise LLMInteractionError(f"Failed to configure Gemini API: {e}") from e
 
 
-    def query(self, prompt: str, retry_attempts: int = 3, delay: int = 5) -> str:
+    def query(self, prompt: str) -> str:
         """
         Sends a prompt to the Gemini API and returns the response text.
-
-        Args:
-            prompt (str): The prompt to send to the LLM.
-            retry_attempts (int): Maximum number of retry attempts on failure.
-            delay (int): Initial delay in seconds between retries (uses exponential backoff).
-
-        Returns:
-            str: The text content of the LLM's response.
-
-        Raises:
-            LLMInteractionError: If the prompt is empty or the API call fails.
         """
         if not prompt or not isinstance(prompt, str):
-            logging.error("LLM query attempted with invalid prompt.")
-            raise LLMInteractionError("Cannot query LLM: Invalid or empty prompt provided.")
+            logging.error("Invalid or empty prompt provided.")
+            raise LLMInteractionError("Unable to query LLM, invalid or empty prompt provided.")
 
         try:
             response = self.model.generate_content(prompt)
@@ -64,7 +46,7 @@ class GeminiInterface:
             if response.prompt_feedback and response.prompt_feedback.block_reason:
                 block_reason = response.prompt_feedback.block_reason
 
-                raise LLMInteractionError(f"Prompt blocked by API. Reason: {block_reason}")
+                raise LLMInteractionError(f"Prompt blocked by API: {block_reason}")
 
             # Get response content
             if hasattr(response, 'text') and isinstance(response.text, str):
@@ -78,4 +60,4 @@ class GeminiInterface:
             raise LLMInteractionError("Response format was unexpected.")
         
         except Exception as e:
-            raise LLMInteractionError(f"Error querying Gemini API: {e}")
+            raise LLMInteractionError(f"Unable to query Gemini API: {e}")

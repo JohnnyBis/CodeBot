@@ -1,7 +1,6 @@
 import logging
 from .gemini_interface import GeminiInterface
 from .prompt_manager import PromptManager
-from .utils.utils import count_tokens, truncate_text
 from .exceptions import ContextSelectionError, LLMInteractionError
 
 class ContextSelector:
@@ -12,34 +11,19 @@ class ContextSelector:
     def __init__(self, config: dict, gemini_interface: GeminiInterface, prompt_manager: PromptManager):
         """
         Initializes the ContextSelector.
-
-        Args:
-            config (dict): Application configuration, expecting 'repository' and 'llm' keys.
-            gemini_interface (GeminiInterface): Instance for interacting with Gemini.
-            prompt_manager (PromptManager): Instance for formatting prompts.
         """
         self.repo_config = config.get('repository', {})
         self.llm_config = config.get('llm', {})
         self.llm = gemini_interface
         self.prompter = prompt_manager
 
-        # Configuration for context limits
-        self.max_context_files = self.repo_config.get('max_context_files', 5)
+        # Configurations
+        self.max_context_files = self.repo_config.get('max_context_files', 6)
         self.max_total_context_tokens = self.llm_config.get('max_context_tokens', 8000)
 
     def select_relevant_files(self, query: str, file_structure: list) -> list:
         """
         Uses Gemini to identify relevant files based on names and the query.
-
-        Args:
-            query (str): The user's query.
-            file_structure (list): A list of relative file paths in the repository.
-
-        Returns:
-            list: A list of selected relevant file paths (subset of file_structure).
-
-        Raises:
-            ContextSelectionError: If the LLM fails to provide a usable selection.
         """
         if not file_structure:
             logging.warning("No file structure provided for context selection. Cannot select files.")
@@ -84,58 +68,39 @@ class ContextSelector:
     def build_context_string(self, selected_files: list, repo_data: dict) -> str:
         """
         Constructs the final context string from the content of selected files.
-
-        Args:
-            selected_files (list): Selected relevant file paths (relative path).
-            repo_data (dict): Maps file path to its content.
-
-        Returns:
-            str: A single string containing the formatted content of the selected files.
         """
         context_parts = []
         total_tokens = 0
-        separator = "\n\n" + "="*20 + "\n\n" # Separator between files
 
-        # Estimate separator tokens (rough)
-        separator_tokens = count_tokens(separator)
+        separator = "\n\n"
 
         for file_path in selected_files:
             if file_path not in repo_data:
-                logging.warning(f"Selected file path '{file_path}' not found in loaded repository data - skipping.")
+                logging.warning(f"Could not find '{file_path}' in loaded repository data, skipping.")
                 continue
 
             content = repo_data[file_path]
-            header = f"--- File: {file_path} ---\n"
-            header_tokens = count_tokens(header)
-            content_tokens = count_tokens(content)
+            if not content.strip():
+                 continue
 
-            # Calculate tokens needed for this file (header + content + separator)
-            # Add separator tokens only if this is not the first file
-            needed_tokens = header_tokens + content_tokens + (separator_tokens if context_parts else 0)
+            header = f"----- File: {file_path} -----\n"
 
-            if total_tokens + needed_tokens <= self.max_total_context_tokens:
-                # Add the file content
-                context_parts.append(header + content)
-                total_tokens += needed_tokens
-                logging.debug(f"Added file '{file_path}' to context ({content_tokens} tokens). Total tokens: {total_tokens}")
+            current_context = header + content
+            try:
+                count_response = self.llm.model.count_tokens(current_context)
+                current_file_tokens = count_response.total_tokens
+
+            except Exception as e:
+                logging.warning(f"Call count_tokens failed for file_path={file_path}, skipping file. Error={e}")
+                continue
+
+            if total_tokens + current_file_tokens <= self.max_total_context_tokens:
+                context_parts.append(current_context)
+                total_tokens += current_file_tokens
             else:
-                # File doesn't fit fully, try truncating
-                available_tokens = self.max_total_context_tokens - total_tokens - header_tokens - (separator_tokens if context_parts else 0)
-                logging.debug(f"File '{file_path}' ({content_tokens} tokens) exceeds context limit ({self.max_total_context_tokens} total). Trying to truncate.")
-
-                # Only add truncated version if there's meaningful space available
-                min_meaningful_tokens = 50 # Don't add tiny truncated snippets
-                if available_tokens > min_meaningful_tokens:
-                    truncated_content = truncate_text(content, available_tokens)
-                    truncated_tokens = count_tokens(truncated_content) # Recalculate after truncation
-
-                    context_parts.append(header + truncated_content)
-                    total_tokens += header_tokens + truncated_tokens + (separator_tokens if context_parts else 0)
-                    logging.debug(f"Added truncated file '{file_path}' to context ({truncated_tokens} tokens). Total tokens: {total_tokens}")
-                else:
-                    logging.debug(f"Not enough space ({available_tokens} tokens) to add even a truncated version of '{file_path}'. Skipping.")
-
-                # Stop adding more files once limit is hit or exceeded
+                logging.warning(f"File with file_path={file_path} exceed max_total_context_tokens={self.max_total_context_tokens}, skipping remaining files.")
                 break
+
+        logging.debug(f"Built final context string with total_tokens={total_tokens}.")
 
         return separator.join(context_parts)

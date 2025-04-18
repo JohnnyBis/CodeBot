@@ -1,17 +1,8 @@
-# Bytecode
 __pycache__/
 *.py[cod]
-
-# Virtual environments
 venv/
 .env/
-
-# Environment files
 *.env
-
-# IDE/editor configs
 .vscode/
 .idea/
-
-# MacOS
 .DS_Store
