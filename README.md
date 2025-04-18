@@ -63,7 +63,6 @@ Yes, the repository contains Cassandra. The file `data/cql/orderbillingservice/0
 ```
 
 ```bash
---- CodeBot says ---
 (venv) (base) gianmariabiselli@MacBookPro CodeBot % python -m src.codebot.main /Users/gianmariabiselli/Desktop/order-billing-service -q "What functions does StripePaymentMapper have? list them and explain it"
 INFO:root:Scanning repository: /Users/gianmariabiselli/Desktop/order-billing-service
 INFO:root:Processing your question...
